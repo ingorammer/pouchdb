@@ -5,7 +5,10 @@ if (typeof module !== undefined && module.exports) {
   var testUtils = require('./test.utils.js');
 }
 
-function DummyDatabase(statusCodeToReturn, dataToReturn) {
+
+QUnit.module('replication-http-errors:');
+
+function MockDatabase(statusCodeToReturn, dataToReturn) {
   this.id = function () {
     return 123;
   };
@@ -26,10 +29,10 @@ function DummyDatabase(statusCodeToReturn, dataToReturn) {
   }
 }
 
-function getCallback(maximumTimeToWait) {
+function getCallback(expectError) {
   // returns a function which expects to be called within a certain time. Fails the test otherwise
 
-  maximumTimeToWait = maximumTimeToWait || 50;
+  var maximumTimeToWait = 50;
   var _hasBeenCalled;
   var _result;
   var _err;
@@ -41,7 +44,8 @@ function getCallback(maximumTimeToWait) {
   };
 
   var timeOutCallback = function () {
-    ok(_hasBeenCalled, 'callback has been called');
+    ok(_hasBeenCalled , 'callback has been called');
+    ok(expectError || !_err , 'error expectation fulfilled');
     start();
   };
 
@@ -51,49 +55,43 @@ function getCallback(maximumTimeToWait) {
 }
 
 asyncTest("Initial replication is ok if source returns HTTP 404", function () {
-  var source = new DummyDatabase(404, null);
-  var target = new DummyDatabase(200, {});
+  var source = new MockDatabase(404, null);
+  var target = new MockDatabase(200, {});
   PouchDB.replicate(source, target, {}, getCallback());
 });
 
 asyncTest("Initial replication is ok if target returns HTTP 404", function () {
-  var source = new DummyDatabase(200, {});
-  var target = new DummyDatabase(404, null);
+  var source = new MockDatabase(200, {});
+  var target = new MockDatabase(404, null);
   PouchDB.replicate(source, target, {}, getCallback());
 });
 
 asyncTest("Initial replication is ok if source and target return HTTP 200", function () {
-  var source = new DummyDatabase(200, {});
-  var target = new DummyDatabase(200, {});
+  var source = new MockDatabase(200, {});
+  var target = new MockDatabase(200, {});
   PouchDB.replicate(source, target, {}, getCallback());
 });
 
-asyncTest("Initial replication is ok if source returns HTTP 500", function () {
-  var source = new DummyDatabase(500, null);
-  var target = new DummyDatabase(200, {});
-  PouchDB.replicate(source, target, {}, getCallback());
+asyncTest("Initial replication returns err if source returns HTTP 500", function () {
+  var source = new MockDatabase(500, null);
+  var target = new MockDatabase(200, {});
+  PouchDB.replicate(source, target, {}, getCallback(true));
 });
 
-asyncTest("Initial replication is ok if target returns HTTP 500", function () {
-  var source = new DummyDatabase(200, {});
-  var target = new DummyDatabase(500, null);
-  PouchDB.replicate(source, target, {}, getCallback());
+asyncTest("Initial replication returns err if target returns HTTP 500", function () {
+  var source = new MockDatabase(200, {});
+  var target = new MockDatabase(500, null);
+  PouchDB.replicate(source, target, {}, getCallback(true));
 });
 
-asyncTest("Initial replication is ok if target and source return HTTP 500", function () {
-  var source = new DummyDatabase(500, null);
-  var target = new DummyDatabase(500, null);
-  PouchDB.replicate(source, target, {}, getCallback());
-});
-
-asyncTest("Subsequent replication is ok if source return HTTP 500", function () {
-  var source = new DummyDatabase(500, null);
-  var target = new DummyDatabase(200, {last_seq: 456});
-  PouchDB.replicate(source, target, {}, getCallback());
+asyncTest("Initial replication returns err if target and source return HTTP 500", function () {
+  var source = new MockDatabase(500, null);
+  var target = new MockDatabase(500, null);
+  PouchDB.replicate(source, target, {}, getCallback(true));
 });
 
 asyncTest("Subsequent replication returns err if source return HTTP 500", function () {
-  var source = new DummyDatabase(500, null);
-  var target = new DummyDatabase(200, {last_seq: 456});
-  PouchDB.replicate(source, target, {}, getCallback());
+  var source = new MockDatabase(500, null);
+  var target = new MockDatabase(200, {last_seq: 456});
+  PouchDB.replicate(source, target, {}, getCallback(true));
 });
